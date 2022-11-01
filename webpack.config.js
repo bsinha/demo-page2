@@ -11,6 +11,7 @@ module.exports = (webpackConfigEnv, argv) => {
 
   return merge(defaultConfig, {
     devServer: {
+      allowedHosts: 'all',
       headers: {
         'Access-Control-Allow-Origin': '*',
       },
