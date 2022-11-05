@@ -1,0 +1,58 @@
+# This config uses the `.circleci/extended/orb-test.yml` as its base, and then publishes the app to S3.
+# The workflow contained here demonstrates a practical application of `post-steps`
+# and using workspace persistence
+version: 2.1
+
+# Orbs are reusable packages of CircleCI configuration that you may share across projects, enabling you to create encapsulated, parameterized commands, jobs, and executors that can be used across multiple projects.
+# See: https://circleci.com/docs/2.0/orb-intro/
+orbs:
+  node: circleci/node@4.1
+  # The S3 orb will setup the aws-cli and quickly copy or sync anything to s3.
+  # Orbs reduce the amount of configuration required for common tasks.
+  # See the orb documentation here: https://circleci.com/developer/orbs/orb/circleci/aws-s3
+  # NOTE: Environment variables containing the necessary secrets can be setup in the CircleCI UI
+  # See here https://circleci.com/docs/2.0/env-vars/#setting-an-environment-variable-in-a-project
+  aws-s3: circleci/aws-s3@2.0
+
+jobs:
+  build:
+    machine:
+      image: ubuntu-2004:current
+      docker_layer_caching: true
+    steps:
+      - checkout
+      - run: npm install && npm run build
+      - persist_to_workspace:
+          root: .
+          paths:
+            - .
+  deploy:
+    machine:
+      image: ubuntu-2004:current
+      docker_layer_caching: true
+    steps:
+      #  - aws-s3/copy:
+      #     from: .
+      #     to: s3://singlespa-demo
+      #     arguments: --recursive
+      - attach_workspace:
+          at: .
+      - checkout
+      - run: aws s3 sync dist s3://singlespa-demo/demo-page2
+
+# Invoke jobs via workflows
+# See: https://circleci.com/docs/2.0/configuration-reference/#workflows
+workflows:
+  build_deploy_s3: # This is the name of the workflow, feel free to change it to better match your workflow.
+    # Inside the workflow, you define the jobs you want to run.
+    jobs:
+      - node/test:
+          version: "15.1"
+          # after the node/test job completes, build the dist packages and save them to a workspace
+      - build:
+          requires:
+            - node/test
+      - deploy:
+          context: singlespa-demo-context
+          requires:
+            - build
